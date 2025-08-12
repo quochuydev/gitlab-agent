@@ -1,4 +1,4 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { Agent, VoltAgent, createTool } from "@voltagent/core";
 import { createPinoLogger } from "@voltagent/logger";
 import { VercelAIProvider } from "@voltagent/vercel-ai";
@@ -312,7 +312,7 @@ const fetchGitHubRepositoryTool = createTool({
   }),
   execute: async (input) => {
     mainLogger.info("Executing fetch_github_repository_files tool", input);
-    
+
     try {
       const { owner, repo, ref = "main", filePath } = input;
 
@@ -330,26 +330,30 @@ const fetchGitHubRepositoryTool = createTool({
           filePath,
           ref
         );
-        
+
         const result = {
           owner,
           repo,
           ref,
           files: [file],
         };
-        
+
         mainLogger.info("Successfully fetched specific GitHub file", {
           owner,
           repo,
           filePath,
           ref,
-          fileSize: file.size
+          fileSize: file.size,
         });
-        
+
         return result;
       } else {
         // Get repository tree
-        mainLogger.debug("Fetching GitHub repository tree", { owner, repo, ref });
+        mainLogger.debug("Fetching GitHub repository tree", {
+          owner,
+          repo,
+          ref,
+        });
         const tree = await githubService.getRepositoryTree(owner, repo, ref);
         const codeFiles = tree
           .filter(
@@ -398,15 +402,15 @@ const fetchGitHubRepositoryTool = createTool({
           ref,
           files: files.filter(Boolean),
         };
-        
+
         mainLogger.info("Successfully fetched GitHub repository files", {
           owner,
           repo,
           ref,
           requestedFiles: codeFiles.length,
-          successfulFiles: result.files.length
+          successfulFiles: result.files.length,
         });
-        
+
         return result;
       }
     } catch (error) {
@@ -414,7 +418,7 @@ const fetchGitHubRepositoryTool = createTool({
         input,
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      
+
       throw new Error(
         `Failed to fetch GitHub repository files: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -611,30 +615,30 @@ const getGitHubPullRequestTool = createTool({
   }),
   execute: async (input) => {
     mainLogger.info("Executing get_github_pull_request tool", input);
-    
+
     try {
       const pullRequest = await githubService.getPullRequest(
         input.owner,
         input.repo,
         input.pullNumber
       );
-      
+
       mainLogger.info("Successfully fetched GitHub pull request", {
         owner: input.owner,
         repo: input.repo,
         pullNumber: input.pullNumber,
         title: pullRequest.title,
         status: pullRequest.status,
-        changedFilesCount: pullRequest.changedFiles?.length || 0
+        changedFilesCount: pullRequest.changedFiles?.length || 0,
       });
-      
+
       return pullRequest;
     } catch (error) {
       mainLogger.error("Failed to execute get_github_pull_request tool", {
         input,
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
-      
+
       throw new Error(
         `Failed to fetch GitHub pull request: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -748,9 +752,9 @@ const scanGuidelinesTool = createTool({
 const codeReviewAgent = new Agent({
   name: "multi-platform-code-reviewer",
   description:
-    "A specialized code review agent that analyzes repository code from GitLab and GitHub, merge/pull requests, and provides comprehensive feedback using Claude API and internal coding guidelines",
+    "A specialized code review agent that analyzes repository code from GitLab and GitHub, merge/pull requests, and provides comprehensive feedback using OpenAI GPT and internal coding guidelines",
   llm: new VercelAIProvider(),
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: openai("gpt-4o"),
   tools: [
     fetchRepositoryTool,
     fetchGitHubRepositoryTool,

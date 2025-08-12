@@ -12,8 +12,8 @@ export const configuration = {
     token: process.env.PERSONAL_GITHUB_TOKEN,
     baseUrl: process.env.GITHUB_BASE_URL || "https://api.github.com",
   },
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
   },
   logging: {
     level: process.env.LOG_LEVEL || "debug", // Set default to debug for better debugging

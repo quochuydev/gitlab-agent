@@ -1,4 +1,4 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { createPinoLogger } from "@voltagent/logger";
 import { configuration } from "./configulation";
@@ -54,17 +54,17 @@ export class AIReviewService {
     this.githubService = githubService;
     this.guidelinesScanner = guidelinesScanner;
 
-    if (!configuration.anthropic.apiKey) {
-      throw new Error("ANTHROPIC_API_KEY is required for AI review service");
+    if (!configuration.openai.apiKey) {
+      throw new Error("OPENAI_API_KEY is required for AI review service");
     }
 
     logger.info("AI Review Service initialized", {
-      anthropicConfigured: !!configuration.anthropic.apiKey,
+      openaiConfigured: !!configuration.openai.apiKey,
     });
   }
 
   /**
-   * Review a single file using Claude AI
+   * Review a single file using OpenAI GPT
    */
   async reviewFile(
     filePath: string,
@@ -138,7 +138,7 @@ Scoring guidelines:
 Set canMerge to false if there are critical security issues or major bugs.`;
 
       const result = await generateText({
-        model: anthropic("claude-3-5-sonnet-20241022"),
+        model: openai("gpt-4o"),
         prompt,
         maxTokens: 4000,
         temperature: 0.1,
@@ -578,17 +578,17 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
     criticalIssues: number;
     recommendations: string[];
   }> {
-    logger.info('Starting AI-powered push review', { 
-      owner, 
-      repo, 
+    logger.info("Starting AI-powered push review", {
+      owner,
+      repo,
       ref,
-      commitCount: commits.length 
+      commitCount: commits.length,
     });
 
     try {
       // Collect all modified/added files from commits
       const filesToAnalyze = new Set<string>();
-      
+
       for (const commit of commits) {
         // Add modified files
         if (commit.modified) {
@@ -612,34 +612,34 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
       if (filesToAnalyze.size === 0) {
         return {
           overallScore: 100,
-          summary: 'No code files changed in this push.',
+          summary: "No code files changed in this push.",
           fileReviews: [],
           criticalIssues: 0,
-          recommendations: ['No code changes to review']
+          recommendations: ["No code changes to review"],
         };
       }
 
-      logger.info('Files to analyze from push', {
+      logger.info("Files to analyze from push", {
         owner,
         repo,
         ref,
         totalFiles: filesToAnalyze.size,
-        files: Array.from(filesToAnalyze)
+        files: Array.from(filesToAnalyze),
       });
 
       // Fetch and review each file
       const fileReviews: CodeReviewResult[] = [];
-      
+
       for (const filePath of filesToAnalyze) {
         try {
           // Get latest commit SHA from push
           const latestCommitSha = commits[commits.length - 1]?.id || ref;
-          
-          logger.debug('Fetching file content for push analysis', {
+
+          logger.debug("Fetching file content for push analysis", {
             owner,
             repo,
             file: filePath,
-            sha: latestCommitSha
+            sha: latestCommitSha,
           });
 
           const fileContent = await this.githubService.getRepositoryFile(
@@ -648,17 +648,16 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
             filePath,
             latestCommitSha
           );
-          
+
           // Review the file with AI
           const review = await this.reviewFile(filePath, fileContent.content);
           fileReviews.push(review);
-          
         } catch (error) {
-          logger.warn('Could not fetch/review file in push', {
+          logger.warn("Could not fetch/review file in push", {
             owner,
             repo,
             file: filePath,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           });
         }
       }
@@ -666,19 +665,23 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
       // Calculate overall statistics
       const overallScore = this.calculateOverallScore(fileReviews);
       const criticalIssues = fileReviews
-        .flatMap(r => r.issues)
-        .filter(i => i.severity === 'critical').length;
-      
-      const summary = this.generatePushSummary(fileReviews, overallScore, commits.length);
+        .flatMap((r) => r.issues)
+        .filter((i) => i.severity === "critical").length;
+
+      const summary = this.generatePushSummary(
+        fileReviews,
+        overallScore,
+        commits.length
+      );
       const recommendations = this.generatePushRecommendations(fileReviews);
 
-      logger.info('Push review completed', {
+      logger.info("Push review completed", {
         owner,
         repo,
         ref,
         filesAnalyzed: fileReviews.length,
         overallScore,
-        criticalIssues
+        criticalIssues,
       });
 
       return {
@@ -686,18 +689,21 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
         summary,
         fileReviews,
         criticalIssues,
-        recommendations
+        recommendations,
       };
-
     } catch (error) {
-      logger.error('Error during push review', {
+      logger.error("Error during push review", {
         owner,
         repo,
         ref,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       });
-      
-      throw new Error(`Failed to review push commits: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      throw new Error(
+        `Failed to review push commits: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
@@ -717,32 +723,36 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
     },
     ref: string
   ): Promise<void> {
-    logger.info('Posting push review to GitHub', { owner, repo, commitSha, ref });
+    logger.info("Posting push review to GitHub", {
+      owner,
+      repo,
+      commitSha,
+      ref,
+    });
 
     try {
       const comment = this.formatPushComment(pushReview, ref);
-      
+
       await this.githubService.octokit.rest.repos.createCommitComment({
         owner,
         repo,
         commit_sha: commitSha,
-        body: comment
+        body: comment,
       });
 
-      logger.info('Push review posted to GitHub successfully', {
+      logger.info("Push review posted to GitHub successfully", {
         owner,
         repo,
         commitSha,
         score: pushReview.overallScore,
-        criticalIssues: pushReview.criticalIssues
+        criticalIssues: pushReview.criticalIssues,
       });
-
     } catch (error) {
-      logger.error('Failed to post push review to GitHub', {
+      logger.error("Failed to post push review to GitHub", {
         owner,
         repo,
         commitSha,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       });
       throw error;
     }
@@ -754,11 +764,13 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
     commitCount: number
   ): string {
     const criticalIssues = fileReviews
-      .flatMap(r => r.issues)
-      .filter(i => i.severity === 'critical').length;
-    
+      .flatMap((r) => r.issues)
+      .filter((i) => i.severity === "critical").length;
+
     if (criticalIssues > 0) {
-      return `🚨 Critical issues detected in ${commitCount} commit${commitCount > 1 ? 's' : ''}! Score: ${overallScore}/100. Immediate action required.`;
+      return `🚨 Critical issues detected in ${commitCount} commit${
+        commitCount > 1 ? "s" : ""
+      }! Score: ${overallScore}/100. Immediate action required.`;
     } else if (overallScore >= 90) {
       return `✅ Excellent code quality in push! Score: ${overallScore}/100. Clean commits.`;
     } else if (overallScore >= 80) {
@@ -770,31 +782,55 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
     }
   }
 
-  private generatePushRecommendations(fileReviews: CodeReviewResult[]): string[] {
+  private generatePushRecommendations(
+    fileReviews: CodeReviewResult[]
+  ): string[] {
     const recommendations: string[] = [];
-    const criticalIssues = fileReviews.flatMap(r => r.issues).filter(i => i.severity === 'critical');
-    const highIssues = fileReviews.flatMap(r => r.issues).filter(i => i.severity === 'high');
-    const securityIssues = fileReviews.flatMap(r => r.issues).filter(i => i.type === 'security');
+    const criticalIssues = fileReviews
+      .flatMap((r) => r.issues)
+      .filter((i) => i.severity === "critical");
+    const highIssues = fileReviews
+      .flatMap((r) => r.issues)
+      .filter((i) => i.severity === "high");
+    const securityIssues = fileReviews
+      .flatMap((r) => r.issues)
+      .filter((i) => i.type === "security");
 
     if (criticalIssues.length > 0) {
-      recommendations.push(`Fix ${criticalIssues.length} critical issue${criticalIssues.length > 1 ? 's' : ''} immediately`);
-    }
-    
-    if (securityIssues.length > 0) {
-      recommendations.push(`Address ${securityIssues.length} security concern${securityIssues.length > 1 ? 's' : ''}`);
-    }
-    
-    if (highIssues.length > 2) {
-      recommendations.push(`Consider refactoring files with multiple high-severity issues`);
+      recommendations.push(
+        `Fix ${criticalIssues.length} critical issue${
+          criticalIssues.length > 1 ? "s" : ""
+        } immediately`
+      );
     }
 
-    const lowScoreFiles = fileReviews.filter(r => r.overallScore < 70);
+    if (securityIssues.length > 0) {
+      recommendations.push(
+        `Address ${securityIssues.length} security concern${
+          securityIssues.length > 1 ? "s" : ""
+        }`
+      );
+    }
+
+    if (highIssues.length > 2) {
+      recommendations.push(
+        `Consider refactoring files with multiple high-severity issues`
+      );
+    }
+
+    const lowScoreFiles = fileReviews.filter((r) => r.overallScore < 70);
     if (lowScoreFiles.length > 0) {
-      recommendations.push(`Review code quality in: ${lowScoreFiles.map(f => f.fileName).join(', ')}`);
+      recommendations.push(
+        `Review code quality in: ${lowScoreFiles
+          .map((f) => f.fileName)
+          .join(", ")}`
+      );
     }
 
     if (recommendations.length === 0) {
-      recommendations.push('Code quality looks good! Keep up the excellent work.');
+      recommendations.push(
+        "Code quality looks good! Keep up the excellent work."
+      );
     }
 
     return recommendations;
@@ -810,21 +846,30 @@ ${mergeDecision.reasons.map((reason) => `- ${reason}`).join("\n")}
     },
     ref: string
   ): string {
-    const { overallScore, summary, fileReviews, criticalIssues, recommendations } = pushReview;
-    
+    const {
+      overallScore,
+      summary,
+      fileReviews,
+      criticalIssues,
+      recommendations,
+    } = pushReview;
+
     const highCount = fileReviews
-      .flatMap(r => r.issues)
-      .filter(i => i.severity === 'high').length;
+      .flatMap((r) => r.issues)
+      .filter((i) => i.severity === "high").length;
     const mediumCount = fileReviews
-      .flatMap(r => r.issues)
-      .filter(i => i.severity === 'medium').length;
-    
-    const scoreEmoji = overallScore >= 90 ? '🟢' : overallScore >= 70 ? '🟡' : '🔴';
-    const branch = ref.replace('refs/heads/', '');
+      .flatMap((r) => r.issues)
+      .filter((i) => i.severity === "medium").length;
+
+    const scoreEmoji =
+      overallScore >= 90 ? "🟢" : overallScore >= 70 ? "🟡" : "🔴";
+    const branch = ref.replace("refs/heads/", "");
 
     return `## 🤖 AI Code Review - Push to \`${branch}\`
 
-${scoreEmoji} **Overall Score: ${overallScore}/100** ${criticalIssues > 0 ? '🚨' : '✅'}
+${scoreEmoji} **Overall Score: ${overallScore}/100** ${
+      criticalIssues > 0 ? "🚨" : "✅"
+    }
 
 ### Summary
 ${summary}
@@ -835,17 +880,27 @@ ${summary}
 - 📋 Medium: ${mediumCount}
 
 ### Files Analyzed: ${fileReviews.length}
-${fileReviews.map(file => 
-  `- **${file.fileName}** (${file.language}): ${file.overallScore}/100 ${
-    file.issues.some(i => i.severity === 'critical') ? '🚨' : 
-    file.overallScore >= 80 ? '✅' : '⚠️'
-  }`
-).join('\n')}
+${fileReviews
+  .map(
+    (file) =>
+      `- **${file.fileName}** (${file.language}): ${file.overallScore}/100 ${
+        file.issues.some((i) => i.severity === "critical")
+          ? "🚨"
+          : file.overallScore >= 80
+          ? "✅"
+          : "⚠️"
+      }`
+  )
+  .join("\n")}
 
 ### Recommendations
-${recommendations.map(rec => `- ${rec}`).join('\n')}
+${recommendations.map((rec) => `- ${rec}`).join("\n")}
 
-${criticalIssues > 0 ? '\n⚠️ **Critical issues require immediate attention before production deployment!**' : ''}
+${
+  criticalIssues > 0
+    ? "\n⚠️ **Critical issues require immediate attention before production deployment!**"
+    : ""
+}
 
 ---
 *Generated by AI Code Review Service*`;
