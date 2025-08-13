@@ -2,7 +2,7 @@
 
 ## Development Commands
 
-IMPORTANT: DON'T run and DON'T ask run `npm run` command in Claude code
+IMPORTANT: Do not run or request the execution of npm run commands in Claude code.
 
 - `npm run dev` - Run the agent in development mode using tsx
 - `npm run webhook` - Run the webhook server
