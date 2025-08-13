@@ -22,17 +22,6 @@ interface UserPreferences {
 }
 ```
 
-**Bad:**
-
-```typescript
-interface User {
-  id: any;
-  name: any;
-  email: any;
-  preferences: any;
-}
-```
-
 ### 2. Generic Types
 
 **Good:**

@@ -355,7 +355,7 @@ export class GitHubService {
   }
 
   /**
-   * Post a review comment to a pull request
+   * Post a regular comment to a pull request issue
    */
   async postPullRequestComment(
     owner: string,
@@ -366,19 +366,19 @@ export class GitHubService {
     logger.debug("Posting pull request comment", { owner, repo, pullNumber });
 
     try {
-      const response = await this.octokit.rest.pulls.createReview({
+      // Try posting as a regular issue comment first (requires less permissions)
+      const response = await this.octokit.rest.issues.createComment({
         owner,
         repo,
-        pull_number: pullNumber,
+        issue_number: pullNumber,
         body,
-        event: "COMMENT",
       });
 
       logger.info("Pull request comment posted successfully", {
         owner,
         repo,
         pullNumber,
-        reviewId: response.data.id,
+        commentId: response.data.id,
       });
 
       return response.data;
@@ -391,6 +391,49 @@ export class GitHubService {
       });
       throw new Error(
         `Failed to post pull request comment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  /**
+   * Post a review to a pull request (requires more permissions)
+   */
+  async postPullRequestReview(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body: string
+  ) {
+    logger.debug("Posting pull request review", { owner, repo, pullNumber });
+
+    try {
+      const response = await this.octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: pullNumber,
+        body,
+        event: "COMMENT",
+      });
+
+      logger.info("Pull request review posted successfully", {
+        owner,
+        repo,
+        pullNumber,
+        reviewId: response.data.id,
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error("Failed to post pull request review", {
+        owner,
+        repo,
+        pullNumber,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw new Error(
+        `Failed to post pull request review: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );

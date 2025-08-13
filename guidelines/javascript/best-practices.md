@@ -19,25 +19,6 @@ const fetchUserData = async (userId) => {
 };
 ```
 
-**Bad:**
-
-```javascript
-function fetchUserData(userId, callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/api/users/" + userId);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        callback(null, JSON.parse(xhr.responseText));
-      } else {
-        callback(new Error("Request failed"));
-      }
-    }
-  };
-  xhr.send();
-}
-```
-
 ### 2. Error Handling
 
 **Good:**
@@ -54,17 +35,6 @@ const processData = (data) => {
       name: item.name?.trim() || "Unknown",
     })) || []
   );
-};
-```
-
-**Bad:**
-
-```javascript
-const processData = (data) => {
-  return data.items.map((item) => ({
-    id: item.id,
-    name: item.name.trim(),
-  }));
 };
 ```
 

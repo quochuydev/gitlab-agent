@@ -1,6 +1,6 @@
 // review.ts - AI-powered code review service
 import { execSync } from "child_process";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { GitHubService } from "./github-service";
 import { GuidelinesScanner } from "./guidelines-scanner";
@@ -8,11 +8,15 @@ import { createPinoLogger } from "@voltagent/logger";
 import { configuration } from "./configulation";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 
 // === CONFIG ===
-const GITHUB_REPO = process.env.GITHUB_REPO!; // format: owner/repo
-const PR_NUMBER = process.env.PR_NUMBER!; // e.g. "42"
-const GUIDELINES_PATH = path.join(__dirname, "guidelines.md");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const GITHUB_REPO = process.env.GITHUB_REPO!;
+const PR_NUMBER = process.env.PR_NUMBER!;
+const GUIDELINES_PATH = path.join(__dirname, "guidelines");
 
 // Initialize services
 const logger = createPinoLogger({
@@ -56,7 +60,10 @@ async function getGuidelines(): Promise<string> {
 }
 
 // === 3. Ask AI to review code ===
-async function reviewCode(diff: string, guidelines: string): Promise<string> {
+async function reviewCode(
+  diff: string,
+  guidelines: string
+): Promise<{ review: string; cost: number; score: number }> {
   logger.info("Starting AI code review", {
     diffLength: diff.length,
     guidelinesLength: guidelines.length,
@@ -74,27 +81,61 @@ ${diff}
 
 Provide a comprehensive markdown-formatted review with:
 - **Summary**: Brief overview of the changes
-- **Issues Found**: List any bugs, security vulnerabilities, or problems
+- **Code Quality Score**: Rate the code changes from 0-100 (100 = excellent, 0 = poor)
+- **Issues Found**: List any bugs, security vulnerabilities, or problems with severity levels (Critical/High/Medium/Low)
 - **Suggested Improvements**: Recommendations for better code quality
 - **Style & Best Practices**: Any violations of coding standards
 - **Security Concerns**: Potential security issues if any
 - **Performance**: Any performance-related observations
+- **Cost Analysis**: Brief note on maintainability and technical debt impact
+
+At the end, provide:
+**SCORE: [0-100]** (numerical score only)
 
 Format your response in clear markdown with appropriate headers and bullet points.
   `;
 
   try {
+    const startTime = Date.now();
+
     const result = await generateText({
-      model: anthropic("claude-3-5-sonnet-20241022"),
+      model: openai("gpt-4o-mini"),
       prompt,
       temperature: 0.1,
     });
 
+    // const result = {
+    //   text: prompt,
+    // };
+
+    const endTime = Date.now();
+
+    // Calculate approximate cost for GPT-4o-mini
+    // Input: $0.150 per 1M tokens, Output: $0.600 per 1M tokens
+    const inputTokens = Math.ceil(prompt.length / 4); // Rough estimate: 4 chars per token
+    const outputTokens = Math.ceil((result.text?.length || 0) / 4);
+    const inputCost = (inputTokens / 1000000) * 0.15;
+    const outputCost = (outputTokens / 1000000) * 0.6;
+    const totalCost = inputCost + outputCost;
+
+    // Extract score from the review text
+    const scoreMatch = result.text?.match(/\*\*SCORE:\s*(\d+)\*\*/);
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : 75; // Default score if not found
+
     logger.info("AI code review completed successfully", {
-      responseLength: result.text.length,
+      responseLength: result.text?.length || 0,
+      inputTokens,
+      outputTokens,
+      costUSD: totalCost.toFixed(6),
+      score,
+      processingTimeMs: endTime - startTime,
     });
 
-    return result.text || "No review generated.";
+    return {
+      review: result.text || "No review generated.",
+      cost: totalCost,
+      score,
+    };
   } catch (error) {
     logger.error("Failed to generate AI code review", {
       error: error instanceof Error ? error.message : "Unknown error",
@@ -108,22 +149,36 @@ Format your response in clear markdown with appropriate headers and bullet point
 }
 
 // === 4. Post review to GitHub/GitLab ===
-async function postReviewToGithub(reviewBody: string) {
+async function postReviewToGithub(
+  reviewBody: string,
+  cost: number,
+  score: number
+) {
   logger.info("Posting review to GitHub PR", { prNumber: PR_NUMBER });
 
   try {
     const [owner, repo] = GITHUB_REPO.split("/");
+
+    // Add cost and score info to the review
+    const enhancedReview = `${reviewBody}
+
+---
+
+**📊 Review Analytics:**
+- **Quality Score:** ${score}/100
+- **AI Cost:** $${cost.toFixed(6)} USD
+- **Model:** GPT-4o-mini
+- **Generated:** ${new Date().toISOString()}`;
 
     // Use our GitHub service to post the review
     await githubService.postPullRequestComment(
       owner,
       repo,
       parseInt(PR_NUMBER),
-      reviewBody
+      enhancedReview
     );
 
     logger.info(`✅ Review posted to GitHub PR #${PR_NUMBER}`);
-    console.log(`✅ Review posted to GitHub PR #${PR_NUMBER}`);
   } catch (error) {
     logger.error("Failed to post review to GitHub", {
       prNumber: PR_NUMBER,
@@ -141,7 +196,6 @@ async function postReviewToGithub(reviewBody: string) {
     const diff = getDiff();
     if (!diff.trim()) {
       logger.info("No changes found. Skipping review.");
-      console.log("No changes found. Skipping review.");
       return;
     }
 
@@ -151,22 +205,32 @@ async function postReviewToGithub(reviewBody: string) {
     });
 
     const guidelines = await getGuidelines();
-    const review = await reviewCode(diff, guidelines);
+    const { review, cost, score } = await reviewCode(diff, guidelines);
+
+    logger.info("Review analysis completed", {
+      qualityScore: score,
+      aiCostUSD: cost.toFixed(6),
+      reviewLength: review.length,
+    });
 
     // Post to both platforms if configured
     const promises = [];
 
     if (GITHUB_REPO && PR_NUMBER) {
-      promises.push(postReviewToGithub(review));
+      promises.push(postReviewToGithub(review, cost, score));
     }
 
     if (promises.length === 0) {
       logger.warn(
         "No PR/MR configuration found. Review generated but not posted."
       );
-      console.log("\n=== Generated Review ===");
-      console.log(review);
-      console.log("\n=== End Review ===");
+      logger.info("\n=== Generated Review ===");
+      //   logger.log(review);
+      logger.info("\n=== Review Analytics ===");
+      logger.info(`Quality Score: ${score}/100`);
+      logger.info(`AI Cost: $${cost.toFixed(6)} USD`);
+      logger.info(`Model: GPT-4o-mini`);
+      logger.info("\n=== End Review ===");
       return;
     }
 
@@ -176,7 +240,6 @@ async function postReviewToGithub(reviewBody: string) {
     logger.error("Code review process failed", {
       error: err instanceof Error ? err.message : "Unknown error",
     });
-    console.error("❌ Error:", err);
     process.exit(1);
   }
 })();
