@@ -91,19 +91,19 @@ Review the following git diff against these coding guidelines.
 
 ## Guidelines:
 
-------------------------------------------------------------
+--------------------
 
 ${guidelines}
 
-------------------------------------------------------------
+--------------------
 
 ## Code Diff:
 
-------------------------------------------------------------
+--------------------
 
 ${diff}
 
-------------------------------------------------------------
+--------------------
 
 ## For each issue you find, quote the specific problematic line(s) and provide actionable feedback.
 
