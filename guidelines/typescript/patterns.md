@@ -3,7 +3,9 @@
 ## Type Safety Best Practices
 
 ### 1. Interface Design
+
 **Good:**
+
 ```typescript
 interface User {
   readonly id: string;
@@ -14,13 +16,14 @@ interface User {
 }
 
 interface UserPreferences {
-  theme: 'light' | 'dark';
+  theme: "light" | "dark";
   notifications: boolean;
   language: string;
 }
 ```
 
 **Bad:**
+
 ```typescript
 interface User {
   id: any;
@@ -31,11 +34,13 @@ interface User {
 ```
 
 ### 2. Generic Types
+
 **Good:**
+
 ```typescript
 interface ApiResponse<T> {
   data: T;
-  status: 'success' | 'error';
+  status: "success" | "error";
   message?: string;
 }
 
@@ -46,16 +51,19 @@ const fetchUser = async (id: string): Promise<ApiResponse<User>> => {
 ```
 
 ### 3. Union Types and Guards
-**Good:**
-```typescript
-type Status = 'loading' | 'success' | 'error';
 
-const isErrorStatus = (status: Status): status is 'error' => {
-  return status === 'error';
+**Good:**
+
+```typescript
+type Status = "loading" | "success" | "error";
+
+const isErrorStatus = (status: Status): status is "error" => {
+  return status === "error";
 };
 ```
 
 ### 4. Common TypeScript Issues
+
 - Using `any` instead of proper types
 - Missing return type annotations
 - Not using strict mode
