@@ -97,11 +97,10 @@ ${content}
 
 ## REVIEW REQUIREMENTS
 Provide a comprehensive code review focusing on:
-1. Security vulnerabilities (hardcoded secrets, SQL injection, XSS, etc.)
-2. Performance issues (inefficient algorithms, memory leaks, etc.)
-3. Code style and best practices
-4. Logic errors and potential bugs
-5. Maintainability and readability
+1. Security vulnerabilities
+2. Code style and best practices
+3. Logic errors and potential bugs
+4. Maintainability and readability
 
 ## RESPONSE FORMAT
 Return your response as a JSON object with this exact structure:

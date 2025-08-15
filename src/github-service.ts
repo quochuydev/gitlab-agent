@@ -353,4 +353,204 @@ export class GitHubService {
       );
     }
   }
+
+  /**
+   * Post a regular comment to a pull request issue
+   */
+  async postPullRequestComment(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body: string
+  ) {
+    logger.debug("Posting pull request comment", { owner, repo, pullNumber });
+
+    try {
+      // Try posting as a regular issue comment first (requires less permissions)
+      const response = await this.octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: pullNumber,
+        body,
+      });
+
+      logger.info("Pull request comment posted successfully", {
+        owner,
+        repo,
+        pullNumber,
+        commentId: response.data.id,
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error("Failed to post pull request comment", {
+        owner,
+        repo,
+        pullNumber,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw new Error(
+        `Failed to post pull request comment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  /**
+   * Post a review to a pull request (requires more permissions)
+   */
+  async postPullRequestReview(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body: string
+  ) {
+    logger.debug("Posting pull request review", { owner, repo, pullNumber });
+
+    try {
+      const response = await this.octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: pullNumber,
+        body,
+        event: "COMMENT",
+      });
+
+      logger.info("Pull request review posted successfully", {
+        owner,
+        repo,
+        pullNumber,
+        reviewId: response.data.id,
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error("Failed to post pull request review", {
+        owner,
+        repo,
+        pullNumber,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw new Error(
+        `Failed to post pull request review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  /**
+   * Post inline comments on specific lines in a pull request
+   */
+  async postInlineReviewComments(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    comments: Array<{
+      path: string;
+      line: number;
+      body: string;
+      side?: "LEFT" | "RIGHT";
+    }>
+  ) {
+    logger.debug("Posting inline review comments", {
+      owner,
+      repo,
+      pullNumber,
+      commentsCount: comments.length,
+    });
+
+    try {
+      // Get the pull request details to get the latest commit SHA
+      const pullRequest = await this.octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+      });
+
+      const commitSha = pullRequest.data.head.sha;
+
+      // Create a review with inline comments
+      const response = await this.octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: pullNumber,
+        event: "COMMENT",
+        commit_id: commitSha,
+        comments: comments.map((comment) => ({
+          path: comment.path,
+          line: comment.line,
+          body: comment.body,
+          side: comment.side || "RIGHT",
+        })),
+      });
+
+      logger.info("Inline review comments posted successfully", {
+        owner,
+        repo,
+        pullNumber,
+        reviewId: response.data.id,
+        commentsCount: comments.length,
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error("Failed to post inline review comments", {
+        owner,
+        repo,
+        pullNumber,
+        commentsCount: comments.length,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw new Error(
+        `Failed to post inline review comments: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  /**
+   * Get the diff for a pull request
+   */
+  async getPullRequestDiff(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<string> {
+    logger.debug("Fetching pull request diff", { owner, repo, pullNumber });
+
+    try {
+      const response = await this.octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+        mediaType: {
+          format: "diff",
+        },
+      });
+
+      logger.info("Pull request diff fetched successfully", {
+        owner,
+        repo,
+        pullNumber,
+        diffLength: (response.data as any).length,
+      });
+
+      return response.data as any;
+    } catch (error) {
+      logger.error("Failed to fetch pull request diff", {
+        owner,
+        repo,
+        pullNumber,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw new Error(
+        `Failed to fetch pull request diff: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
 }
