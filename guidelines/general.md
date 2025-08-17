@@ -21,7 +21,7 @@ Review the code and provide feedback based on the guidelines.
   - `/scripts`
   - `node_modules`
 - **Target folders:**
-  - `/src/v2.ts`
+  - `/src/main.ts`
   - `/src/utils.ts`
   - `/guidelines/*`
 - **Target file types:**

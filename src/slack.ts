@@ -21,7 +21,9 @@ export interface SlackMessage {
   blocks: SlackBlock[];
 }
 
-export const sendSlackNotification = async (message: SlackMessage): Promise<void> => {
+export const sendSlackNotification = async (
+  message: SlackMessage
+): Promise<void> => {
   if (!configuration.slack.webhookUrl) {
     console.warn("Slack webhook URL not configured, skipping notification");
     return;
@@ -57,7 +59,16 @@ export const createReviewMessage = (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*AI Code Review Result*\n\n*Original code:*\n\`\`\`${originalCode}\`\`\`\n\n*Recommendation:*\n\`\`\`${recommendation}\`\`\`\n\n*Explanation:* ${explanation}`,
+        text: `*AI Code Review Result*
+        
+*Original code:*
+
+\`\`\`${originalCode}\`\`\`
+
+*Recommendation:*
+\`\`\`${recommendation}\`\`\`
+
+*Explanation:* ${explanation}`,
       },
     },
   ];
