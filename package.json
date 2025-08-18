@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch --env-file=.env ./src/main.ts",
-    "webhook": "tsx watch --env-file=.env ./src/webhook-main.ts",
-    "review": "tsx watch --env-file=.env ./src/review.ts",
-    "start": "node dist/index.js",
-    "volt": "volt"
+    "dev": "tsx --env-file=.env ./src/main.ts",
+    "start": "node dist/webhook.js"
   },
   "keywords": [
     "gitlab",

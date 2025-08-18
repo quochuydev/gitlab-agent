@@ -1,61 +1,45 @@
 # TypeScript Patterns and Guidelines
 
-## Type Safety Best Practices
+## Common Issues
 
-### 1. Interface Design
-
-**Good:**
-
-```typescript
-interface User {
-  readonly id: string;
-  name: string;
-  email: string;
-  preferences?: UserPreferences;
-  createdAt: Date;
-}
-
-interface UserPreferences {
-  theme: "light" | "dark";
-  notifications: boolean;
-  language: string;
-}
-```
-
-### 2. Generic Types
-
-**Good:**
-
-```typescript
-interface ApiResponse<T> {
-  data: T;
-  status: "success" | "error";
-  message?: string;
-}
-
-const fetchUser = async (id: string): Promise<ApiResponse<User>> => {
-  const response = await fetch(`/api/users/${id}`);
-  return response.json();
-};
-```
-
-### 3. Union Types and Guards
-
-**Good:**
-
-```typescript
-type Status = "loading" | "success" | "error";
-
-const isErrorStatus = (status: Status): status is "error" => {
-  return status === "error";
-};
-```
-
-### 4. Common TypeScript Issues
-
-- Using `any` instead of proper types
-- Missing return type annotations
-- Not using strict mode
-- Ignoring TypeScript errors with `@ts-ignore`
+- Not using `any`
+- Get the error with ESlint
+- The related file is not imported
 - Missing null/undefined checks
 - Not using readonly for immutable data
+
+## Specific requirements
+
+- Variable naming: use camelCase
+
+**Bad:**
+
+```typescript
+const update_date = new Date();
+```
+
+**Good:**
+
+```typescript
+const updateDate = new Date();
+```
+
+- Use ISOString format for request body
+
+**Bad:**
+
+```typescript
+await fetch("/api/update", {
+  method: "POST",
+  body: JSON.stringify({ updateDate: Date.now() }),
+});
+```
+
+**Good:**
+
+```typescript
+await fetch("/api/update", {
+  method: "POST",
+  body: JSON.stringify({ updateDate: new Date().toISOString() }),
+});
+```
