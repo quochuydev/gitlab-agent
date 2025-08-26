@@ -24,31 +24,6 @@
           ]
         }
       ]
-    },
-    {
-      "blocks": [
-        {
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": "*AI Code Review Result*\n\n*Original code:*\n```function foo() { console.log(\"test\")}```\n\n*Recommendation:*\n```function foo() {\n  console.log(\"Test\");\n}```"
-          }
-        },
-        {
-          "type": "actions",
-          "elements": [
-            {
-              "type": "button",
-              "text": {
-                "type": "plain_text",
-                "text": "Update now"
-              },
-              "style": "primary",
-              "url": "https://your-ci-pipeline-link-or-github-action"
-            }
-          ]
-        }
-      ]
     }
   ]
 }

@@ -1,87 +1,63 @@
+import { openai } from "@ai-sdk/openai";
+import { Agent, VoltAgent, createTool } from "@voltagent/core";
 import { createPinoLogger } from "@voltagent/logger";
-import express from "express";
-import { configuration, updateConfigurationFromWebhook } from "./configuration";
-import { performCodeReview } from "./review-engine";
-
-const app = express();
-const port = configuration.server.port;
+import { VercelAIProvider } from "@voltagent/vercel-ai";
+import { z } from "zod";
+import { sendSlackNotification } from "./slack";
 
 // Create logger
 const logger = createPinoLogger({
-  name: "webhook-server",
+  name: "technical-agent",
   level: "info",
 });
 
-// Middleware
-app.use(express.json());
+// Define a calculator tool
+const slackSendMessageTool = createTool({
+  name: "slack-send-message",
+  description: "Send a message to Slack",
+  parameters: z.object({
+    message: z.string().describe("message"),
+  }),
+  execute: async (args) => {
+    try {
+      console.log(`debug:args`, args);
 
-// Health check endpoint
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+      const result = await sendSlackNotification({
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: args.message,
+            },
+          },
+        ],
+      });
+      return { result };
+    } catch (e) {
+      console.log(`debug:e`, e);
 
-// GitHub webhook endpoint
-app.get("/webhook/github", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+      const errorMessage = e instanceof Error ? e.message : String(e);
 
-app.post("/webhook/github", async (req, res) => {
-  try {
-    const event = req.headers["x-github-event"];
-    const payload = req.body;
-
-    logger.info(`Received GitHub webhook: ${event}`);
-
-    // Only process push events
-    if (event === "push") {
-      const { repository, ref, pusher } = payload;
-
-      logger.info(
-        `Processing push event - Repo: ${repository?.full_name}, Branch: ${ref}, Pusher: ${pusher?.name}`
+      throw new Error(
+        `Failed to send message to Slack: ${args.message}. Error: ${errorMessage}`
       );
-
-      // Skip if push is to main branch (we compare against main)
-      if (ref === "refs/heads/main") {
-        logger.info("Skipping review for main branch push");
-        res.json({ message: "Skipped main branch" });
-        return;
-      }
-
-      // Update configuration for the review
-      const repoName = repository?.full_name || "";
-      const branchName = ref?.replace("refs/heads/", "") || "";
-      updateConfigurationFromWebhook(repoName, branchName);
-
-      // Trigger code review
-      await performCodeReview();
-
-      res.json({ message: "Code review triggered" });
-    } else {
-      logger.info(`Ignoring ${event} event`);
-      res.json({ message: `Ignored ${event} event` });
     }
-  } catch (error) {
-    logger.error(
-      "Webhook processing failed: " +
-        (error instanceof Error ? error.message : String(error))
-    );
-    res.status(500).json({ error: "Internal server error" });
-  }
+  },
 });
 
-// Start server
-app.listen(port, () => {
-  logger.info(`Webhook server running on port ${port}`);
-  logger.info("Ready to receive GitHub webhooks at /webhook/github");
+const agent = new Agent({
+  name: "TechnicalAgent",
+  description:
+    "A helpful assistant that can review code and send messages to Slack",
+  llm: new VercelAIProvider(),
+  model: openai("gpt-4.1-mini"),
+  tools: [slackSendMessageTool],
 });
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  logger.info("Received SIGTERM, shutting down gracefully");
-  process.exit(0);
-});
-
-process.on("SIGINT", () => {
-  logger.info("Received SIGINT, shutting down gracefully");
-  process.exit(0);
+new VoltAgent({
+  agents: {
+    agent,
+  },
+  logger,
 });

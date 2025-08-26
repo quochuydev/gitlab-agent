@@ -2,7 +2,6 @@ export interface Configuration {
   github: {
     token: string;
     repo: string;
-    prNumber: string;
   };
   slack: {
     webhookUrl: string;
@@ -22,7 +21,6 @@ export const configuration: Configuration = {
   github: {
     token: process.env.GITHUB_TOKEN || "",
     repo: process.env.GITHUB_REPO || "",
-    prNumber: process.env.PR_NUMBER || "",
   },
   slack: {
     webhookUrl: process.env.SLACK_WEBHOOK_URL || "",
