@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
