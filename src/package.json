@@ -1,0 +1,18 @@
+{
+  "name": "review",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "review": "DOT_ENV_PATH='.env' NODE_TLS_REJECT_UNAUTHORIZED=0 tsx ./main.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "minimatch": "^10.0.1",
+    "openai": "^5.15.0",
+    "parse-diff": "^0.11.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "4.19.1"
+  }
+}

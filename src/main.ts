@@ -1,87 +1,172 @@
-import { createPinoLogger } from "@voltagent/logger";
-import express from "express";
-import { configuration, updateConfigurationFromWebhook } from "./configuration";
-import { performCodeReview } from "./review-engine";
+import fs from 'fs';
+import minimatch from 'minimatch';
+import OpenAI from 'openai';
+import parseDiff, { Chunk, File } from 'parse-diff';
+import path from 'path';
+import { configuration } from './configuration';
 
-const app = express();
-const port = configuration.server.port;
+console.log(`SLACK_SERVICE_URL`, process.env.SLACK_SERVICE_URL);
 
-// Create logger
-const logger = createPinoLogger({
-  name: "webhook-server",
-  level: "info",
-});
+const openai = new OpenAI({ apiKey: configuration.openai.apiKey });
 
-// Middleware
-app.use(express.json());
+async function analyzeCode(
+  parsedDiff: File[],
+): Promise<Array<{ body: string; path: string; line: number }>> {
+  const comments: Array<{ body: string; path: string; line: number }> = [];
 
-// Health check endpoint
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+  for (const file of parsedDiff) {
+    if (file.to === '/dev/null') continue; // deleted
 
-// GitHub webhook endpoint
-app.get("/webhook/github", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+    for (const chunk of file.chunks) {
+      const prompt = createPrompt(chunk);
+      const aiResponse = await getAIResponse(prompt);
 
-app.post("/webhook/github", async (req, res) => {
-  try {
-    const event = req.headers["x-github-event"];
-    const payload = req.body;
-
-    logger.info(`Received GitHub webhook: ${event}`);
-
-    // Only process push events
-    if (event === "push") {
-      const { repository, ref, pusher } = payload;
-
-      logger.info(
-        `Processing push event - Repo: ${repository?.full_name}, Branch: ${ref}, Pusher: ${pusher?.name}`
-      );
-
-      // Skip if push is to main branch (we compare against main)
-      if (ref === "refs/heads/main") {
-        logger.info("Skipping review for main branch push");
-        res.json({ message: "Skipped main branch" });
-        return;
+      if (aiResponse) {
+        const newComments = createComment(file, chunk, aiResponse);
+        if (newComments) comments.push(...newComments);
       }
-
-      // Update configuration for the review
-      const repoName = repository?.full_name || "";
-      const branchName = ref?.replace("refs/heads/", "") || "";
-      updateConfigurationFromWebhook(repoName, branchName);
-
-      // Trigger code review
-      await performCodeReview();
-
-      res.json({ message: "Code review triggered" });
-    } else {
-      logger.info(`Ignoring ${event} event`);
-      res.json({ message: `Ignored ${event} event` });
     }
-  } catch (error) {
-    logger.error(
-      "Webhook processing failed: " +
-        (error instanceof Error ? error.message : String(error))
-    );
-    res.status(500).json({ error: "Internal server error" });
   }
-});
 
-// Start server
-app.listen(port, () => {
-  logger.info(`Webhook server running on port ${port}`);
-  logger.info("Ready to receive GitHub webhooks at /webhook/github");
-});
+  return comments;
+}
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  logger.info("Received SIGTERM, shutting down gracefully");
-  process.exit(0);
-});
+function loadGuidelines(): string {
+  const guidelinesDir = path.resolve(__dirname, './guidelines');
 
-process.on("SIGINT", () => {
-  logger.info("Received SIGINT, shutting down gracefully");
-  process.exit(0);
+  const files = fs
+    .readdirSync(guidelinesDir)
+    .filter((f) => f.endsWith('.md') || f.endsWith('.txt'))
+    .sort();
+
+  const contents = files.map((file) =>
+    fs.readFileSync(path.join(guidelinesDir, file), 'utf8'),
+  );
+
+  return contents.join('\n\n---\n\n');
+}
+
+const guidelines = loadGuidelines();
+
+function createPrompt(chunk: Chunk): string {
+  return `
+${guidelines}
+
+---
+
+Git diff to review:
+
+\`\`\`diff
+${chunk.content}
+
+${chunk.changes
+  // @ts-expect-error - ln and ln2 exist in parse-diff chunks
+  .map((c) => `${c.ln ? c.ln : c.ln2} ${c.content}`)
+  .join('\n')}
+\`\`\`
+`;
+}
+
+async function getAIResponse(prompt: string): Promise<Array<{
+  lineNumber: string;
+  reviewComment: string;
+}> | null> {
+  try {
+    const response: OpenAI.Chat.Completions.ChatCompletion =
+      await openai.chat.completions.create({
+        model: configuration.openai.model,
+        temperature: 0.2,
+        max_tokens: 700,
+        ...(configuration.openai.model === 'gpt-4-1106-preview'
+          ? {
+              response_format: { type: 'json_object' },
+            }
+          : {}),
+        messages: [
+          {
+            role: 'system',
+            content: prompt,
+          },
+        ],
+      });
+
+    const res = response.choices[0].message?.content?.trim() || '{}';
+    return JSON.parse(res).reviews;
+  } catch (error) {
+    console.error('Error from OpenAI:', error?.message || error);
+    return null;
+  }
+}
+
+function createComment(
+  file: File,
+  chunk: Chunk,
+  aiResponses: Array<{ lineNumber: string; reviewComment: string }>,
+): Array<{ body: string; path: string; line: number }> {
+  return aiResponses.flatMap((aiResponse) => {
+    if (!file.to) return [];
+
+    return {
+      body: aiResponse.reviewComment,
+      path: file.to,
+      line: Number(aiResponse.lineNumber),
+    };
+  });
+}
+
+/**
+ * Orchestrator
+ */
+async function main() {
+  const fullDiff = fs.readFileSync(
+    path.resolve(__dirname, './diff/diff.txt'),
+    'utf8',
+  );
+
+  const parsedDiff = parseDiff(fullDiff);
+
+  const excludePatterns = configuration.exclude
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const filteredDiff = parsedDiff.filter((file) => {
+    return !excludePatterns.some((pattern) =>
+      minimatch(file.to ?? '', pattern),
+    );
+  });
+
+  const comments = await analyzeCode(filteredDiff);
+
+  if (comments.length === 0) {
+    console.log('No suggestions from AI.');
+    return;
+  }
+
+  for (const c of comments) {
+    try {
+      console.log(`debug:c`, c);
+
+      if (process.env.SLACK_SERVICE_URL) {
+        await fetch(process.env.SLACK_SERVICE_URL!, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: `File: ${c.path}, Line: ${c.line}, Comment: ${c.body}`,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to post comment:', err);
+    }
+  }
+
+  console.log('Done.');
+}
+
+main().catch((error) => {
+  console.error('Unhandled error:', error);
+  process.exit(1);
 });

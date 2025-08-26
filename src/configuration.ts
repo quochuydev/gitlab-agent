@@ -1,48 +1,49 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import * as z from 'zod';
+
 export interface Configuration {
-  github: {
-    token: string;
-    repo: string;
-    prNumber: string;
-  };
-  slack: {
-    webhookUrl: string;
-  };
   openai: {
     apiKey: string;
+    model: string;
   };
-  server: {
-    port: number;
-  };
-  review: {
-    currentBranch: string;
-  };
+  exclude: string;
 }
 
-export const configuration: Configuration = {
-  github: {
-    token: process.env.GITHUB_TOKEN || "",
-    repo: process.env.GITHUB_REPO || "",
-    prNumber: process.env.PR_NUMBER || "",
-  },
-  slack: {
-    webhookUrl: process.env.SLACK_WEBHOOK_URL || "",
-  },
+if (process.env.DOT_ENV_PATH) {
+  const envPath = path.join(process.cwd(), process.env.DOT_ENV_PATH);
+  const buffer = fs.readFileSync(envPath);
+  const defaultConfig = dotenv.parse(buffer);
+
+  Object.entries(defaultConfig).forEach(([key, value]) => {
+    if (!process.env[key]) process.env[key] = value;
+  });
+}
+
+const schema = z.object({
+  openai: z.object({
+    apiKey: z.string(),
+    model: z.string(),
+  }),
+  exclude: z.string(),
+});
+
+const configuration: Configuration = {
   openai: {
-    apiKey: process.env.OPENAI_API_KEY || "",
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: process.env.OPENAI_API_MODEL || 'gpt-4',
   },
-  server: {
-    port: parseInt(process.env.PORT || "3000"),
-  },
-  review: {
-    currentBranch: process.env.CURRENT_BRANCH || "HEAD",
-  },
+  exclude: process.env.EXCLUDE || '**/*.json, **/*.md',
 };
 
-// Helper function to update configuration for webhook events
-export const updateConfigurationFromWebhook = (
-  repo: string,
-  branch: string
-): void => {
-  configuration.github.repo = repo;
-  configuration.review.currentBranch = branch;
-};
+try {
+  console.log(`debug:configuration`, configuration);
+  schema.parse(configuration);
+} catch (error) {
+  console.error('Bad configuration.', error);
+  throw error;
+}
+
+export { configuration };

@@ -4,9 +4,7 @@
 
 - Not using `any`
 - Get the error with ESlint
-- The related file is not imported
 - Missing null/undefined checks
-- Not using readonly for immutable data
 
 ## Specific requirements
 
@@ -29,8 +27,8 @@ const updateDate = new Date();
 **Bad:**
 
 ```typescript
-await fetch("/api/update", {
-  method: "POST",
+await fetch('/api/update', {
+  method: 'POST',
   body: JSON.stringify({ updateDate: Date.now() }),
 });
 ```
@@ -38,8 +36,8 @@ await fetch("/api/update", {
 **Good:**
 
 ```typescript
-await fetch("/api/update", {
-  method: "POST",
+await fetch('/api/update', {
+  method: 'POST',
   body: JSON.stringify({ updateDate: new Date().toISOString() }),
 });
 ```
