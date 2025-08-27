@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -12,13 +13,17 @@ export interface Configuration {
 }
 
 if (process.env.DOT_ENV_PATH) {
-  const envPath = path.join(process.cwd(), process.env.DOT_ENV_PATH);
-  const buffer = fs.readFileSync(envPath);
-  const defaultConfig = dotenv.parse(buffer);
+  try {
+    const envPath = path.join(process.cwd(), process.env.DOT_ENV_PATH);
+    const buffer = fs.readFileSync(envPath);
+    const defaultConfig = dotenv.parse(buffer);
 
-  Object.entries(defaultConfig).forEach(([key, value]) => {
-    if (!process.env[key]) process.env[key] = value;
-  });
+    Object.entries(defaultConfig).forEach(([key, value]) => {
+      if (!process.env[key]) process.env[key] = value;
+    });
+  } catch (error) {
+    console.error(error.message || error);
+  }
 }
 
 const schema = z.object({
