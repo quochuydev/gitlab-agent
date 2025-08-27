@@ -1,5 +1,5 @@
 import { Chunk } from "parse-diff";
-import { loadGuidelines } from "./guidelines";
+import { loadGuidelines } from "../utils/guidelines";
 
 const guidelines = loadGuidelines();
 

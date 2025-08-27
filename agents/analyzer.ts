@@ -1,7 +1,7 @@
 import { File } from 'parse-diff';
 import { createPrompt } from './prompts';
 import { getAIResponse } from './ai';
-import { createComment } from './comments';
+import { createComment } from '../utils/comments';
 
 export async function analyzeCode(
   parsedDiff: File[],

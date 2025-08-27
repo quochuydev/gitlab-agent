@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { configuration } from './configuration';
-import { logger } from './logger';
+import { configuration } from '../utils/configuration';
+import { logger } from '../utils/logger';
 
 const openai = new OpenAI({ apiKey: configuration.openai.apiKey });
 

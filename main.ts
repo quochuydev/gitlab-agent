@@ -1,9 +1,9 @@
 import minimatch from 'minimatch';
 import parseDiff from 'parse-diff';
-import { configuration } from './configuration';
-import { logger } from './logger';
-import { analyzeCode } from './analyzer';
-import { postGitLabComment } from './comments';
+import { configuration } from './utils/configuration';
+import { logger } from './utils/logger';
+import { analyzeCode } from './agents/analyzer';
+import { postGitLabComment } from './utils/comments';
 
 async function main() {
   logger.info(
