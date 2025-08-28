@@ -19,7 +19,7 @@ if (process.env.DOT_ENV_PATH) {
     const defaultConfig = dotenv.parse(buffer);
 
     Object.entries(defaultConfig).forEach(([key, value]) => {
-      if (!process.env[key]) process.env[key] = value;
+      if (!process.env[key]) process.env[key] = String(value);
     });
   } catch (err: unknown) {
     const error = toAppError(err);

@@ -6,6 +6,7 @@
     "review": "DOT_ENV_PATH='.env' NODE_TLS_REJECT_UNAUTHORIZED=0 tsx ./main.ts"
   },
   "dependencies": {
+    "dotenv": "^17.2.1",
     "minimatch": "^10.0.3",
     "openai": "^5.15.0",
     "parse-diff": "^0.11.1",
