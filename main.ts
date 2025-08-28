@@ -16,7 +16,9 @@ async function main() {
     'Environment variables',
   );
 
-  if (!process.env.GIT_DIFF) throw new Error('GIT_DIFF is not set');
+  if (!process.env.GIT_DIFF) {
+    throw new Error('GIT_DIFF environment variable is required but not set. Please ensure GIT_DIFF contains the git diff output to analyze.');
+  }
 
   const parsedDiff = parseDiff(process.env.GIT_DIFF);
 
