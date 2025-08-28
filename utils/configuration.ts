@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -38,14 +37,20 @@ const schema = z.object({
 
 const configuration: Configuration = {
   openai: {
-    apiKey: process.env.OPENAI_API_KEY || '',
-    model: process.env.OPENAI_API_MODEL || 'gpt-4',
+    apiKey: process.env.OPENAI_API_KEY ?? '',
+    model: process.env.OPENAI_API_MODEL ?? 'gpt-4',
   },
-  exclude: process.env.EXCLUDE || '**/*.json, **/*.md',
+  exclude: process.env.EXCLUDE ?? '**/*.json, **/*.md',
 };
 
 try {
-  console.log(`debug:configuration`, configuration);
+  console.log('debug:configuration', {
+    openai: {
+      apiKey: configuration.openai.apiKey ? '[REDACTED]' : '[MISSING]',
+      model: configuration.openai.model,
+    },
+    exclude: configuration.exclude,
+  });
   schema.parse(configuration);
 } catch (err: unknown) {
   const error = toAppError(err);
