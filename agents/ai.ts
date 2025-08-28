@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { configuration } from '../utils/configuration';
 import { logger } from '../utils/logger';
+import { toAppError } from '../types/errors';
 
 const openai = new OpenAI({ apiKey: configuration.openai.apiKey });
 
@@ -23,7 +24,8 @@ export async function getAIResponse(prompt: string): Promise<Array<{
 
     const res = response.choices[0].message?.content?.trim() || '{}';
     return JSON.parse(res).reviews;
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = toAppError(err);
     logger.error({ err: error }, 'Error from OpenAI');
     return null;
   }

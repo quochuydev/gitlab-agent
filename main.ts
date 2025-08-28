@@ -4,6 +4,7 @@ import { configuration } from './utils/configuration';
 import { logger } from './utils/logger';
 import { analyzeCode } from './agents/analyzer';
 import { postGitLabComment } from './utils/comments';
+import { toAppError } from './types/errors';
 
 async function main() {
   logger.info(
@@ -45,7 +46,8 @@ async function main() {
   logger.info('Done.');
 }
 
-main().catch((err) => {
-  logger.error({ err }, 'Unhandled error');
+main().catch((err: unknown) => {
+  const error = toAppError(err);
+  logger.error({ err: error }, 'Unhandled error');
   process.exit(1);
 });

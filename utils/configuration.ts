@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import * as z from 'zod';
+import { toAppError } from '../types/errors';
 
 export interface Configuration {
   openai: {
@@ -21,8 +22,9 @@ if (process.env.DOT_ENV_PATH) {
     Object.entries(defaultConfig).forEach(([key, value]) => {
       if (!process.env[key]) process.env[key] = value;
     });
-  } catch (error) {
-    console.error(error.message || error);
+  } catch (err: unknown) {
+    const error = toAppError(err);
+    console.error(error.message);
   }
 }
 
@@ -45,8 +47,9 @@ const configuration: Configuration = {
 try {
   console.log(`debug:configuration`, configuration);
   schema.parse(configuration);
-} catch (error) {
-  console.error('Bad configuration.', error);
+} catch (err: unknown) {
+  const error = toAppError(err);
+  console.error('Bad configuration.', error.message);
   throw error;
 }
 

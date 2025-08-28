@@ -1,5 +1,6 @@
 import { Chunk, File } from 'parse-diff';
 import { logger } from './logger';
+import { toAppError } from '../types/errors';
 
 export function createComment(
   file: File,
@@ -56,7 +57,8 @@ export async function postGitLabComment(c: {
 
     const result = await response.json();
     logger.debug({ result }, 'GitLab API response');
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = toAppError(err);
     logger.error({ err: error }, 'Error posting GitLab comment');
   }
 }
