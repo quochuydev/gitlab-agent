@@ -6,14 +6,20 @@
     "review": "DOT_ENV_PATH='.env' NODE_TLS_REJECT_UNAUTHORIZED=0 tsx ./main.ts"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.72",
+    "@langchain/mongodb": "^0.1.0",
+    "@langchain/openai": "^0.6.9",
     "dotenv": "^17.2.1",
+    "langchain": "^0.3.31",
     "minimatch": "^10.0.3",
+    "mongodb": "^6.19.0",
     "openai": "^5.15.0",
     "parse-diff": "^0.11.1",
     "pino": "9.9.0",
     "tsx": "4.19.1"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0"
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
   }
 }

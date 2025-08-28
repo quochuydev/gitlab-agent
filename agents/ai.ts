@@ -1,32 +1,74 @@
-import OpenAI from 'openai';
-import { configuration } from '../utils/configuration';
-import { logger } from '../utils/logger';
-import { toAppError } from '../types/errors';
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from "@langchain/core/prompts";
+import { RunnableWithMessageHistory } from "@langchain/core/runnables";
+import { MongoDBChatMessageHistory } from "@langchain/mongodb";
+import { ChatOpenAI } from "@langchain/openai";
+import { MongoClient } from "mongodb";
+import { toAppError } from "../utils/errors";
+import { configuration } from "../configuration";
+import { logger } from "../utils/logger";
 
-const openai = new OpenAI({ apiKey: configuration.openai.apiKey });
+const mongoClient = new MongoClient(
+  `${configuration.mongodbUrl}/?retryWrites=true&w=majority&appName=ai-agent`
+);
 
-export async function getAIResponse(prompt: string): Promise<Array<{
+const chatModel = new ChatOpenAI({
+  openAIApiKey: configuration.openai.apiKey,
+  modelName: configuration.openai.model,
+  temperature: 0.2,
+  maxTokens: 700,
+});
+
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "{system_message}"],
+  new MessagesPlaceholder("history"),
+  ["human", "{input}"],
+]);
+
+const chainWithHistory = new RunnableWithMessageHistory({
+  runnable: prompt.pipe(chatModel),
+  getMessageHistory: (sessionId) => {
+    return new MongoDBChatMessageHistory({
+      collection: mongoClient!.db("chat_history").collection("sessions"),
+      sessionId,
+    });
+  },
+  inputMessagesKey: "input",
+  historyMessagesKey: "history",
+});
+
+export async function getAIResponse(
+  promptText: string,
+  sessionId?: string
+): Promise<Array<{
   lineNumber: string;
   reviewComment: string;
 }> | null> {
   try {
-    const response = await openai.chat.completions.create({
-      model: configuration.openai.model,
-      temperature: 0.2,
-      max_tokens: 700,
-      messages: [
-        {
-          role: 'system',
-          content: prompt,
-        },
-      ],
-    });
+    await mongoClient.connect();
 
-    const res = response.choices[0].message?.content?.trim() || '{}';
+    const response = await chainWithHistory.invoke(
+      {
+        input: promptText,
+      },
+      {
+        configurable: {
+          sessionId,
+        },
+      }
+    );
+
+    const content = response.content as string;
+    const res = content || "{}";
+
     return JSON.parse(res).reviews;
   } catch (err: unknown) {
     const error = toAppError(err);
-    logger.error({ err: error }, 'Error from OpenAI');
+    logger.error({ err: error }, "Error from LangChain with MongoDB memory");
     return null;
+  } finally {
+    await mongoClient.close();
   }
 }

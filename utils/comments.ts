@@ -1,10 +1,11 @@
-import { File } from 'parse-diff';
-import { logger } from './logger';
-import { toAppError } from '../types/errors';
+import { File } from "parse-diff";
+import { logger } from "./logger";
+import { toAppError } from "./errors";
+import { configuration } from "../configuration";
 
 export function createComment(
   file: File,
-  aiResponses: Array<{ lineNumber: string; reviewComment: string }>,
+  aiResponses: Array<{ lineNumber: string; reviewComment: string }>
 ) {
   return aiResponses.flatMap((aiResponse) => {
     if (!file.to) return [];
@@ -21,63 +22,58 @@ export async function postGitLabComment(c: {
   path: string;
   line: number;
 }) {
+  if (!configuration.gitlab) {
+    logger.error("GitLab configuration is missing");
+    return;
+  }
+
   try {
-    const gitlab = {
-      apiV4Url: process.env.CI_API_V4_URL ?? '',
-      projectId: process.env.CI_PROJECT_ID ?? '',
-      mergeRequestId: process.env.CI_MERGE_REQUEST_IID ?? '',
-      gitlabToken: process.env.GITLAB_TOKEN ?? '',
-      baseSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? '',
-      headSha: process.env.CI_COMMIT_SHA ?? '',
-      startSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? '',
-    };
-    
-    if (!gitlab.apiV4Url) throw new Error('CI_API_V4_URL is required');
-    if (!gitlab.projectId) throw new Error('CI_PROJECT_ID is required');
-    if (!gitlab.mergeRequestId) throw new Error('CI_MERGE_REQUEST_IID is required');
-    if (!gitlab.gitlabToken) throw new Error('GITLAB_TOKEN is required');
-    if (!gitlab.baseSha) throw new Error('CI_MERGE_REQUEST_DIFF_BASE_SHA is required');
-    if (!gitlab.headSha) throw new Error('CI_COMMIT_SHA is required');
-
-    const url = `${gitlab.apiV4Url}/projects/${gitlab.projectId}/merge_requests/${gitlab.mergeRequestId}/discussions`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'PRIVATE-TOKEN': gitlab.gitlabToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        body: c.body,
-        position: {
-          position_type: 'text',
-          base_sha: gitlab.baseSha,
-          head_sha: gitlab.headSha,
-          start_sha: gitlab.startSha,
-          new_path: c.path,
-          new_line: c.line,
+    const response = await fetch(
+      `${configuration.gitlab.apiV4Url}/projects/${configuration.gitlab.projectId}/merge_requests/${configuration.gitlab.mergeRequestId}/discussions`,
+      {
+        method: "POST",
+        headers: {
+          "PRIVATE-TOKEN": configuration.gitlab.gitlabToken,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          body: c.body,
+          position: {
+            position_type: "text",
+            base_sha: configuration.gitlab.baseSha,
+            head_sha: configuration.gitlab.headSha,
+            start_sha: configuration.gitlab.startSha,
+            new_path: c.path,
+            new_line: c.line,
+          },
+        }),
+      }
+    );
 
     const result = await response.json();
-    
+
     if (!response.ok) {
-      logger.error({ 
-        status: response.status, 
-        statusText: response.statusText,
-        error: result?.message || 'Unknown error' 
-      }, 'GitLab API error');
+      logger.error(
+        {
+          status: response.status,
+          statusText: response.statusText,
+          error: result?.message || "Unknown error",
+        },
+        "GitLab API error"
+      );
       return;
     }
-    
-    logger.debug({ 
-      status: response.status,
-      discussionId: result?.id,
-      success: true 
-    }, 'GitLab comment posted successfully');
+
+    logger.debug(
+      {
+        status: response.status,
+        discussionId: result?.id,
+        success: true,
+      },
+      "GitLab comment posted successfully"
+    );
   } catch (err: unknown) {
     const error = toAppError(err);
-    logger.error({ err: error }, 'Error posting GitLab comment');
+    logger.error({ err: error }, "Error posting GitLab comment");
   }
 }

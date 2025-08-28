@@ -5,6 +5,7 @@ import { createComment } from '../utils/comments';
 
 export async function analyzeCode(
   parsedDiff: File[],
+  sessionId?: string,
 ): Promise<Array<{ body: string; path: string; line: number }>> {
   const comments: Array<{ body: string; path: string; line: number }> = [];
 
@@ -13,10 +14,10 @@ export async function analyzeCode(
 
     for (const chunk of file.chunks) {
       const prompt = createPrompt(chunk);
-      const aiResponse = await getAIResponse(prompt);
+      const aiResponse = await getAIResponse(prompt, sessionId);
 
       if (aiResponse) {
-        const newComments = createComment(file, chunk, aiResponse);
+        const newComments = createComment(file, aiResponse);
         if (newComments) comments.push(...newComments);
       }
     }
