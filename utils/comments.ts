@@ -1,10 +1,9 @@
-import { Chunk, File } from 'parse-diff';
+import { File } from 'parse-diff';
 import { logger } from './logger';
 import { toAppError } from '../types/errors';
 
 export function createComment(
   file: File,
-  chunk: Chunk,
   aiResponses: Array<{ lineNumber: string; reviewComment: string }>,
 ) {
   return aiResponses.flatMap((aiResponse) => {
