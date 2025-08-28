@@ -24,15 +24,21 @@ export async function postGitLabComment(c: {
 }) {
   try {
     const gitlab = {
-      apiV4Url: process.env.CI_API_V4_URL!,
-      projectId: process.env.CI_PROJECT_ID!,
-      mergeRequestId: process.env.CI_MERGE_REQUEST_IID!,
-      gitlabToken: process.env.GITLAB_TOKEN!,
-      baseSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA!,
-      headSha: process.env.CI_COMMIT_SHA!,
-      startSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA!,
+      apiV4Url: process.env.CI_API_V4_URL ?? '',
+      projectId: process.env.CI_PROJECT_ID ?? '',
+      mergeRequestId: process.env.CI_MERGE_REQUEST_IID ?? '',
+      gitlabToken: process.env.GITLAB_TOKEN ?? '',
+      baseSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? '',
+      headSha: process.env.CI_COMMIT_SHA ?? '',
+      startSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? '',
     };
-    if (!gitlab.gitlabToken) throw new Error('Invalid gitlab token');
+    
+    if (!gitlab.apiV4Url) throw new Error('CI_API_V4_URL is required');
+    if (!gitlab.projectId) throw new Error('CI_PROJECT_ID is required');
+    if (!gitlab.mergeRequestId) throw new Error('CI_MERGE_REQUEST_IID is required');
+    if (!gitlab.gitlabToken) throw new Error('GITLAB_TOKEN is required');
+    if (!gitlab.baseSha) throw new Error('CI_MERGE_REQUEST_DIFF_BASE_SHA is required');
+    if (!gitlab.headSha) throw new Error('CI_COMMIT_SHA is required');
 
     const url = `${gitlab.apiV4Url}/projects/${gitlab.projectId}/merge_requests/${gitlab.mergeRequestId}/discussions`;
 
