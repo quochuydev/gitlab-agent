@@ -61,7 +61,21 @@ export async function postGitLabComment(c: {
     });
 
     const result = await response.json();
-    logger.debug({ result }, 'GitLab API response');
+    
+    if (!response.ok) {
+      logger.error({ 
+        status: response.status, 
+        statusText: response.statusText,
+        error: result?.message || 'Unknown error' 
+      }, 'GitLab API error');
+      return;
+    }
+    
+    logger.debug({ 
+      status: response.status,
+      discussionId: result?.id,
+      success: true 
+    }, 'GitLab comment posted successfully');
   } catch (err: unknown) {
     const error = toAppError(err);
     logger.error({ err: error }, 'Error posting GitLab comment');

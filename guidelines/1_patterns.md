@@ -22,13 +22,13 @@ const update_date = new Date();
 const updateDate = new Date();
 ```
 
-- Use ISOString format for request body
+- Internal APIs project, use ISOString format for request body
 
 **Bad:**
 
 ```typescript
-await fetch('/api/update', {
-  method: 'POST',
+await fetch("/api/update", {
+  method: "POST",
   body: JSON.stringify({ updateDate: Date.now() }),
 });
 ```
@@ -36,8 +36,8 @@ await fetch('/api/update', {
 **Good:**
 
 ```typescript
-await fetch('/api/update', {
-  method: 'POST',
+await fetch("/api/update", {
+  method: "POST",
   body: JSON.stringify({ updateDate: new Date().toISOString() }),
 });
 ```
