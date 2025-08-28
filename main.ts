@@ -1,4 +1,4 @@
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 import parseDiff from 'parse-diff';
 import { configuration } from './utils/configuration';
 import { logger } from './utils/logger';
@@ -24,7 +24,7 @@ async function main() {
 
   const excludePatterns = configuration.exclude
     .split(',')
-    .map((s) => s.trim())
+    .map(pattern => pattern.trim())
     .filter(Boolean);
 
   const filteredDiff = parsedDiff.filter((file) => {
