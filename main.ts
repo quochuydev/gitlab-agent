@@ -34,7 +34,6 @@ index f2a7e18..75d7834 100644
    - deploy
  
 @@ -76,6 +77,34 @@ services:
-     - export KUBE_DOMAIN=$KUBE_DOMAIN_GARRIO_PROD
      - export DOCKER_IMAGE_VERSION=$DEPLOY_VERSION
  
 +review:code:
@@ -70,7 +69,7 @@ index f2a7e18..75d7834 100644
    tags: [dind]
 @@ -201,7 +230,6 @@ diff:demo:portal:
        export DIFF=diff
-       task deploy:garrio-prod
+       task deploy:app
  
 -
  deploy:demo:portal:

@@ -19,7 +19,7 @@ export interface Configuration {
     headSha: string;
     startSha: string;
   };
-  mongodbUrl: string;
+  mongodbUrl?: string;
 }
 
 if (process.env.DOT_ENV_PATH) {
@@ -54,7 +54,7 @@ const schema = z.object({
       startSha: z.string(),
     })
     .optional(),
-  mongodbUrl: z.string(),
+  mongodbUrl: z.string().optional(),
 });
 
 const configuration: Configuration = {
@@ -74,7 +74,7 @@ const configuration: Configuration = {
         startSha: process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? "",
       }
     : undefined,
-  mongodbUrl: process.env.MONGODB_URL!,
+  mongodbUrl: process.env.MONGODB_URL || undefined,
 };
 
 try {
